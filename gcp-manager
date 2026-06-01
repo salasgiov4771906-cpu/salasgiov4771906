@@ -128,8 +128,8 @@ do
         gcloud compute instances create "$VM_NAME" \
             --zone="$ZONE" \
             --machine-type=e2-micro \
-            --image-family=debian-12 \
-            --image-project=debian-cloud \
+            --image-family=ubuntu-2204-lts \
+            --image-project=ubuntu-os-cloud \
             --no-address
 
     else
@@ -137,8 +137,8 @@ do
         gcloud compute instances create "$VM_NAME" \
             --zone="$ZONE" \
             --machine-type=e2-micro \
-            --image-family=debian-12 \
-            --image-project=debian-cloud \
+            --image-family=ubuntu-2204-lts \
+            --image-project=ubuntu-os-cloud \
             --network-tier="$NETWORK_TIER"
 
     fi
@@ -150,10 +150,10 @@ echo
 
 for vm in "${CREATED_VMS[@]}"
 do
-    gcloud compute instances describe "$vm" \
+    IP=$(gcloud compute instances describe "$vm" \
         --zone="$ZONE" \
-        --format="table(
-            name,
-            networkInterfaces[0].accessConfigs[0].natIP
-        )"
+        --format="value(networkInterfaces[0].accessConfigs[0].natIP)")
+
+    echo "$vm | $IP"
 done
+
