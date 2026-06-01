@@ -38,40 +38,28 @@ fi
 echo
 echo "📍 Chọn zone"
 
+# Auto Balance Zone
+
 if [ "$REGION" = "asia-northeast1" ]; then
-    echo "1) asia-northeast1-a"
-    echo "2) asia-northeast1-b"
-    echo "3) asia-northeast1-c"
 
-    read -p "ENTER = Random: " Z
+    ZONES=(
+        "asia-northeast1-a"
+        "asia-northeast1-b"
+        "asia-northeast1-c"
+    )
 
-    case "$Z" in
-        1) ZONE="asia-northeast1-a" ;;
-        2) ZONE="asia-northeast1-b" ;;
-        3) ZONE="asia-northeast1-c" ;;
-        *)
-            ARR=("asia-northeast1-a" "asia-northeast1-b" "asia-northeast1-c")
-            ZONE=${ARR[$RANDOM % ${#ARR[@]}]}
-            ;;
-    esac
 else
-    echo "1) asia-northeast2-a"
-    echo "2) asia-northeast2-b"
-    echo "3) asia-northeast2-c"
 
-    read -p "ENTER = Random: " Z
+    ZONES=(
+        "asia-northeast2-a"
+        "asia-northeast2-b"
+        "asia-northeast2-c"
+    )
 
-    case "$Z" in
-        1) ZONE="asia-northeast2-a" ;;
-        2) ZONE="asia-northeast2-b" ;;
-        3) ZONE="asia-northeast2-c" ;;
-        *)
-            ARR=("asia-northeast2-a" "asia-northeast2-b" "asia-northeast2-c")
-            ZONE=${ARR[$RANDOM % ${#ARR[@]}]}
-            ;;
-    esac
 fi
 
+echo
+echo "📍 Zone: Auto Balance (A → B → C)"
 echo
 read -p "📝 Prefix VM (ENTER = $PREFIX_DEFAULT): " PREFIX
 PREFIX=${PREFIX:-$PREFIX_DEFAULT}
@@ -119,9 +107,12 @@ sleep 1
 for ((i=1;i<=VM_COUNT;i++))
 do
     RND=$((100 + RANDOM % 900))
+
+    ZONE=${ZONES[$(( (i-1) % ${#ZONES[@]} ))]}
+
     VM_NAME="${PREFIX}-${RND}"
 
-    echo "➡️ Tạo $VM_NAME"
+    echo "➡️ Tạo $VM_NAME | $ZONE"
 
     if [ "$PUBLIC_IP" = "2" ]; then
 
@@ -142,6 +133,7 @@ do
             --network-tier="$NETWORK_TIER"
 
     fi
+
 done
 
 echo
