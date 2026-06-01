@@ -1,163 +1,159 @@
 #!/bin/bash
 
-create_multiple_vm() {
+set -e
 
-```
-clear
-echo "=============================="
-echo "      CREATE MULTIPLE VM"
-echo "=============================="
+PROJECT=$(gcloud config get-value project 2>/dev/null)
 
-echo ""
-echo "🖥️ Chọn loại máy:"
-echo "1) e2-micro (mặc định)"
-echo "2) e2-small"
-echo "3) e2-medium"
-
-read -p "👉 Lựa chọn [1-3] (Enter=1): " TYPE
-TYPE=${TYPE:-1}
-
-case $TYPE in
-    1) MACHINE_TYPE="e2-micro" ;;
-    2) MACHINE_TYPE="e2-small" ;;
-    3) MACHINE_TYPE="e2-medium" ;;
-    *) MACHINE_TYPE="e2-micro" ;;
-esac
-
-echo ""
-echo "🌏 Chọn khu vực:"
-echo "1) Tokyo"
-echo "2) Osaka"
-
-read -p "👉 Lựa chọn [1-2] (Enter=1): " REGION
-REGION=${REGION:-1}
-
-if [[ "$REGION" == "1" ]]; then
-    REGION_NAME="asia-northeast1"
-    DEFAULT_PREFIX="tokyo"
-    ZONES=("asia-northeast1-a" "asia-northeast1-b" "asia-northeast1-c")
-else
-    REGION_NAME="asia-northeast2"
-    DEFAULT_PREFIX="osaka"
-    ZONES=("asia-northeast2-a" "asia-northeast2-b" "asia-northeast2-c")
+if [ -z "$PROJECT" ]; then
+    echo "❌ Chưa chọn project"
+    echo "gcloud config set project PROJECT_ID"
+    exit 1
 fi
 
-echo ""
-echo "📍 Chọn Zone:"
-echo "1) ${ZONES[0]}"
-echo "2) ${ZONES[1]}"
-echo "3) ${ZONES[2]}"
-echo "Enter = Random"
+echo "Project: $PROJECT"
+echo
 
-read -p "👉 Zone: " ZONE_CHOICE
+echo "🌏 Chọn khu vực:"
+echo "1) Tokyo (asia-northeast1)"
+echo "2) Osaka (asia-northeast2)"
 
-echo ""
-read -p "📝 Prefix VM (Enter=${DEFAULT_PREFIX}): " PREFIX
-PREFIX=${PREFIX:-$DEFAULT_PREFIX}
+read -p "Nhập [1-2] (ENTER = Random): " REGION_CHOICE
 
-read -p "🔢 Số lượng VM (Enter=5): " VM_COUNT
+if [ -z "$REGION_CHOICE" ]; then
+    if (( RANDOM % 2 )); then
+        REGION="asia-northeast1"
+        PREFIX_DEFAULT="tokyo"
+    else
+        REGION="asia-northeast2"
+        PREFIX_DEFAULT="osaka"
+    fi
+elif [ "$REGION_CHOICE" = "1" ]; then
+    REGION="asia-northeast1"
+    PREFIX_DEFAULT="tokyo"
+else
+    REGION="asia-northeast2"
+    PREFIX_DEFAULT="osaka"
+fi
+
+echo
+echo "📍 Chọn zone"
+
+if [ "$REGION" = "asia-northeast1" ]; then
+    echo "1) asia-northeast1-a"
+    echo "2) asia-northeast1-b"
+    echo "3) asia-northeast1-c"
+
+    read -p "ENTER = Random: " Z
+
+    case "$Z" in
+        1) ZONE="asia-northeast1-a" ;;
+        2) ZONE="asia-northeast1-b" ;;
+        3) ZONE="asia-northeast1-c" ;;
+        *)
+            ARR=("asia-northeast1-a" "asia-northeast1-b" "asia-northeast1-c")
+            ZONE=${ARR[$RANDOM % ${#ARR[@]}]}
+            ;;
+    esac
+else
+    echo "1) asia-northeast2-a"
+    echo "2) asia-northeast2-b"
+    echo "3) asia-northeast2-c"
+
+    read -p "ENTER = Random: " Z
+
+    case "$Z" in
+        1) ZONE="asia-northeast2-a" ;;
+        2) ZONE="asia-northeast2-b" ;;
+        3) ZONE="asia-northeast2-c" ;;
+        *)
+            ARR=("asia-northeast2-a" "asia-northeast2-b" "asia-northeast2-c")
+            ZONE=${ARR[$RANDOM % ${#ARR[@]}]}
+            ;;
+    esac
+fi
+
+echo
+read -p "📝 Prefix VM (ENTER = $PREFIX_DEFAULT): " PREFIX
+PREFIX=${PREFIX:-$PREFIX_DEFAULT}
+
+echo
+read -p "🔢 Số lượng VM (ENTER = 5): " VM_COUNT
 VM_COUNT=${VM_COUNT:-5}
 
-echo ""
-echo "🌐 Public IP?"
-echo "1) Có"
-echo "2) Không"
+echo
+echo "🌐 Public IP"
+echo "1) Có Public IP"
+echo "2) Private Only"
 
-read -p "👉 Lựa chọn (Enter=1): " PUBLIC_IP
+read -p "ENTER = 1: " PUBLIC_IP
 PUBLIC_IP=${PUBLIC_IP:-1}
 
-echo ""
-echo "📡 Network Tier"
+echo
+echo "🚀 Network Tier"
 echo "1) STANDARD"
 echo "2) PREMIUM"
 
-read -p "👉 Lựa chọn (Enter=1): " TIER
+read -p "ENTER = 1: " TIER
 TIER=${TIER:-1}
 
-if [[ "$TIER" == "1" ]]; then
-    NETWORK_TIER="STANDARD"
-else
+if [ "$TIER" = "2" ]; then
     NETWORK_TIER="PREMIUM"
+else
+    NETWORK_TIER="STANDARD"
 fi
 
-echo ""
+echo
+echo "===================================="
+echo "Region      : $REGION"
+echo "Zone        : $ZONE"
+echo "Prefix      : $PREFIX"
+echo "VM Count    : $VM_COUNT"
+echo "Public IP   : $PUBLIC_IP"
+echo "Tier        : $NETWORK_TIER"
+echo "===================================="
+
+echo
 echo "🚀 Bắt đầu tạo VM..."
-echo ""
+sleep 1
 
 for ((i=1;i<=VM_COUNT;i++))
 do
+    RND=$((100 + RANDOM % 900))
+    VM_NAME="${PREFIX}-${RND}"
 
-    VM_NAME=$(printf "%s%02d" "$PREFIX" "$i")
+    echo "➡️ Tạo $VM_NAME"
 
-    if [[ -z "$ZONE_CHOICE" ]]; then
-        INDEX=$((RANDOM % 3))
-        ZONE=${ZONES[$INDEX]}
-    else
-        case $ZONE_CHOICE in
-            1) ZONE=${ZONES[0]} ;;
-            2) ZONE=${ZONES[1]} ;;
-            3) ZONE=${ZONES[2]} ;;
-            *) ZONE=${ZONES[0]} ;;
-        esac
-    fi
-
-    echo "📦 Tạo $VM_NAME tại $ZONE"
-
-    if [[ "$PUBLIC_IP" == "1" ]]; then
+    if [ "$PUBLIC_IP" = "2" ]; then
 
         gcloud compute instances create "$VM_NAME" \
-        --zone="$ZONE" \
-        --machine-type="$MACHINE_TYPE" \
-        --image-family=ubuntu-2404-lts-amd64 \
-        --image-project=ubuntu-os-cloud \
-        --network-tier="$NETWORK_TIER"
+            --zone="$ZONE" \
+            --machine-type=e2-micro \
+            --image-family=debian-12 \
+            --image-project=debian-cloud \
+            --no-address
 
     else
 
         gcloud compute instances create "$VM_NAME" \
-        --zone="$ZONE" \
-        --machine-type="$MACHINE_TYPE" \
-        --image-family=ubuntu-2404-lts-amd64 \
-        --image-project=ubuntu-os-cloud \
-        --no-address
+            --zone="$ZONE" \
+            --machine-type=e2-micro \
+            --image-family=debian-12 \
+            --image-project=debian-cloud \
+            --network-tier="$NETWORK_TIER"
 
     fi
-
 done
 
-echo ""
-echo "✅ Hoàn tất!"
-```
+echo
+echo "✅ VM vừa tạo:"
+echo
 
-}
-
-while true
+for vm in "${CREATED_VMS[@]}"
 do
-clear
-
-```
-echo "=============================="
-echo "      GOOGLE CLOUD MANAGER"
-echo "=============================="
-echo "1) Tạo nhiều VM"
-echo "2) Danh sách VM"
-echo "0) Thoát"
-
-read -p "👉 Chọn: " MENU
-
-case $MENU in
-    1)
-        create_multiple_vm
-        read -p "Nhấn Enter để tiếp tục..."
-        ;;
-    2)
-        gcloud compute instances list
-        read -p "Nhấn Enter để tiếp tục..."
-        ;;
-    0)
-        exit
-        ;;
-esac
-```
-
+    gcloud compute instances describe "$vm" \
+        --zone="$ZONE" \
+        --format="table(
+            name,
+            networkInterfaces[0].accessConfigs[0].natIP
+        )"
 done
