@@ -1,0 +1,153 @@
+#!/bin/bash
+
+set -e
+
+USER_NAME="proxyuser"
+PASSWORD="proxypass"
+
+SOCKS_PORT="7001"
+HTTP_PORT="6001"
+
+echo "=================================="
+echo " Install SOCKS5 + HTTP Proxy"
+echo "=================================="
+
+apt update
+
+apt install -y 
+dante-server 
+tinyproxy 
+apache2-utils
+
+####################################
+
+# NETWORK INTERFACE
+
+####################################
+
+IFACE=$(ip route | awk '/default/ {print $5}' | head -n1)
+
+echo "Interface: $IFACE"
+
+####################################
+
+# USER
+
+####################################
+
+if ! id "$USER_NAME" >/dev/null 2>&1; then
+useradd -m "$USER_NAME"
+fi
+
+echo "${USER_NAME}:${PASSWORD}" | chpasswd
+
+####################################
+
+# DANTE SOCKS5
+
+####################################
+
+cat >/etc/danted.conf <<EOF
+logoutput: syslog
+
+internal: 0.0.0.0 port = ${SOCKS_PORT}
+external: ${IFACE}
+
+method: username
+
+user.privileged: root
+user.notprivileged: nobody
+
+client pass {
+from: 0.0.0.0/0 to: 0.0.0.0/0
+}
+
+pass {
+from: 0.0.0.0/0 to: 0.0.0.0/0
+protocol: tcp udp
+}
+EOF
+
+systemctl restart danted
+systemctl enable danted
+
+####################################
+
+# TINYPROXY HTTP
+
+####################################
+
+htpasswd -bc /etc/tinyproxy/passwd 
+"${USER_NAME}" 
+"${PASSWORD}"
+
+cp /etc/tinyproxy/tinyproxy.conf 
+/etc/tinyproxy/tinyproxy.conf.bak
+
+cat >/etc/tinyproxy/tinyproxy.conf <<EOF
+User tinyproxy
+Group tinyproxy
+
+Port ${HTTP_PORT}
+
+Timeout 600
+
+DefaultErrorFile "/usr/share/tinyproxy/default.html"
+
+StatFile "/usr/share/tinyproxy/stats.html"
+
+LogLevel Info
+
+PidFile "/run/tinyproxy/tinyproxy.pid"
+
+MaxClients 500
+
+StartServers 10
+
+MinSpareServers 5
+
+MaxSpareServers 20
+
+BasicAuth ${USER_NAME} ${PASSWORD}
+EOF
+
+systemctl restart tinyproxy
+systemctl enable tinyproxy
+
+####################################
+
+# FIREWALL (OS)
+
+####################################
+
+iptables -I INPUT -p tcp --dport ${SOCKS_PORT} -j ACCEPT
+iptables -I INPUT -p tcp --dport ${HTTP_PORT} -j ACCEPT
+
+####################################
+
+# PUBLIC IP
+
+####################################
+
+PUBLIC_IP=$(curl -4 -s ifconfig.me || true)
+
+echo
+echo "=================================="
+echo " INSTALL SUCCESS"
+echo "=================================="
+
+echo
+echo "SOCKS5:"
+echo "socks5:${PUBLIC_IP}:${SOCKS_PORT}:${USER_NAME}:${PASSWORD}"
+
+echo
+echo "HTTP:"
+echo "http:${PUBLIC_IP}:${HTTP_PORT}:${USER_NAME}:${PASSWORD}"
+
+echo
+echo "Google Cloud Firewall:"
+echo "tcp:${SOCKS_PORT}"
+echo "tcp:${HTTP_PORT}"
+
+echo
+echo "=================================="
